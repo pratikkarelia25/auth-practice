@@ -21,7 +21,12 @@ app.use(express.urlencoded({extended:true}));
 app.get('/',(req,res)=>{
     res.send('this is the home page')
 })
-
+const requireLogin = (req,res,next)=>{
+    if(!req.session.user_id){
+        return res.redirect('/login')
+    }
+    next();
+}
 
 app.get('/login',(req,res)=>{
     res.render('login')
@@ -29,12 +34,10 @@ app.get('/login',(req,res)=>{
 
 app.post('/login',async(req,res)=>{
     const {username,password} = req.body;
-    const user = await User.findOne({username:username});
-    const validUser = await bcrypt.compare(password, user.password);
-    if(validUser){
-        req.session.user_id = user._id;
-        res.send('WELCOME');
-        
+    const foundUser = await User.findAndValidate(username,password)
+    if(foundUser){
+        req.session.user_id = foundUser._id;
+        res.render('logout');
     }
     else{
         res.send("TRY AGAIN")
@@ -49,7 +52,6 @@ app.get('/session',(req,res)=>{
 })
 app.post('/register',async(req,res)=>{
     const {username,password} = req.body
-    const hash = await bcrypt.hash(password,12)
     const user = new User({
         username,
         password:hash
@@ -59,11 +61,13 @@ app.post('/register',async(req,res)=>{
     res.redirect('/')
 })
 
-app.get('/secret',(req,res)=>{
-    if(!req.session.user_id){
-        res.redirect('/')
-    }
-    res.send("YAY U ARE LOGGED IN")
+app.post('/logout',(req,res)=>{
+    req.session.user_id=null;
+    res.render('login')
+})
+
+app.get('/secret',requireLogin,(req,res)=>{
+    res.render("secret")
 })
 
 
